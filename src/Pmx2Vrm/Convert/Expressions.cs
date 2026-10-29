@@ -158,7 +158,7 @@ public sealed partial class Converter
         }
     }
 
-    /// <summary>Weighted mean X (glTF space, before the bake) of the vertices a morph moves; NaN if none.</summary>
+    /// <summary>Weighted mean X (glTF space; the model's left is +X) of the vertices a morph moves; NaN if none.</summary>
     float MorphSideX(int morph)
     {
         var e = new ExpandedMorph();

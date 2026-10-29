@@ -63,7 +63,7 @@ public static class ConverterTests
     public static void TestHumanoid()
     {
         var (g, rep) = Convert();
-        foreach (var b in Humanoid.Required) Vrm(g)["humanoid"]!["humanBones"]![b].ToString();
+        foreach (var b in Humanoid.Required) Assert.True(Vrm(g)["humanoid"]!["humanBones"]![b] != null, $"humanBones.{b}");
         Assert.True(rep.MissingRequired.Count == 0, "all required bones: missing " + string.Join(",", rep.MissingRequired));
         Assert.Equal(1, Node(g, "hips"), "hips = センター (common ancestor of spine and legs)");
         Assert.Equal(30, Node(g, "leftUpperLeg"), "left leg uses the D-bone");
