@@ -1,0 +1,8 @@
+bin/
+obj/
+samples/
+out/
+node_modules/
+*.vrm
+*.glb
+!tests/**/*.keep
