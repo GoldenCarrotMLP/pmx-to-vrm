@@ -103,18 +103,33 @@ public sealed partial class Converter
         string[] regionOrder = { "Head", "Body", "LeftArm", "RightArm", "LeftLeg", "RightLeg" };
         var colliders = new JsonArray();
         var colliderBodies = new List<(Body Body, string Region)>();
-        int skippedAnchors = 0;
+        int skippedAnchors = 0, moved = 0;
+        var aliases = Humanoid.Aliases(_m, _human);
         foreach (var b in _bodies)
         {
             if (b.Bone < 0 || b.Mode != PmxPhysicsMode.FollowBone) continue;
             if (_simulated[b.Bone] || UnderSimulated(b.Bone)) continue;
-            int hb = NearestHuman(b.Bone, humanOf, out var human);
-            // Anchor bodies (on non-human bones that hold physics chains, like a skirt or hair root) are not colliders.
-            if (!humanOf.ContainsKey(b.Bone) && simBelow[b.Bone]) { skippedAnchors++; continue; }
-            var region = hb >= 0 ? Humanoid.Region(human) : "Body";
-            colliders.Add(new JsonObject { ["node"] = b.Bone, ["shape"] = ColliderShape(b) });
+            int node = b.Bone;
+            string human;
+            if (aliases.TryGetValue(b.Bone, out var alias))
+            {
+                // A body on 左足 while the humanoid uses 左足D: hang the collider on the bone that actually moves.
+                node = _human[alias];
+                human = alias;
+                moved++;
+            }
+            else
+            {
+                int hb = NearestHuman(b.Bone, humanOf, out human);
+                // Anchor bodies (on non-human bones that hold physics chains, like a skirt or hair root) are not colliders.
+                if (!humanOf.ContainsKey(b.Bone) && simBelow[b.Bone]) { skippedAnchors++; continue; }
+                if (hb < 0) human = "";
+            }
+            var region = human.Length > 0 ? Humanoid.Region(human) : "Body";
+            colliders.Add(new JsonObject { ["node"] = node, ["shape"] = ColliderShape(b, node) });
             colliderBodies.Add((b, region));
         }
+        if (moved > 0) _r.Warnings.Add($"{moved} collider bodies sat on bones the humanoid doesn't use (e.g. 足 next to 足D); moved onto the human bones.");
         var groups = new JsonArray();
         var groupIndex = new Dictionary<string, int>();
         foreach (var region in regionOrder)
@@ -272,9 +287,9 @@ public sealed partial class Converter
     static float Clamp01(float v) => float.IsFinite(v) ? Math.Clamp(v, 0, 1) : 0.5f;
 
     /// <summary>The collider shape in its bone's local space (the nodes carry no rotation).</summary>
-    JsonObject ColliderShape(Body b)
+    JsonObject ColliderShape(Body b, int node)
     {
-        var origin = _bonePos[b.Bone];
+        var origin = _bonePos[node];
         JsonObject Sphere(Vector3 c, float r) => new() { ["sphere"] = new JsonObject { ["offset"] = GltfBuilder.Arr(c - origin), ["radius"] = GltfBuilder.Num(r) } };
         JsonObject Capsule(Vector3 a, Vector3 t, float r) => new() { ["capsule"] = new JsonObject { ["offset"] = GltfBuilder.Arr(a - origin), ["radius"] = GltfBuilder.Num(r), ["tail"] = GltfBuilder.Arr(t - origin) } };
         var (shape, a2, t2, r2) = Shape(b);

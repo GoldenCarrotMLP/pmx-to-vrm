@@ -20,6 +20,10 @@ public sealed class ConvertOptions
     public bool AllMorphs;
     /// <summary>Convert rigid bodies and joints to spring bones and colliders.</summary>
     public bool Physics = true;
+    /// <summary>Morphs applied permanently before conversion (name, weight).</summary>
+    public List<(string Name, float Weight)> BakeMorphs = new();
+    /// <summary>Bake the AutoLuminous-off morphs (AL未使用, LightOff) at 1 when the model has them.</summary>
+    public bool NoAutoLuminous;
 }
 
 public sealed class ConvertReport
@@ -34,6 +38,8 @@ public sealed class ConvertReport
     public readonly List<string> Springs = new();
     public int SpringJoints, Colliders, ColliderGroups;
     public readonly List<string> Warnings = new();
+    public readonly List<string> Baked = new();
+    public readonly List<string> Notes = new();
 
     public override string ToString()
     {
@@ -42,6 +48,8 @@ public sealed class ConvertReport
         sb.AppendLine($"  model '{ModelName}': {Vertices} vertices, {Faces} faces, {Materials} materials, {Textures} textures, {Bones} bones, height {HeightMetres:0.00} m");
         sb.AppendLine($"  humanoid: {HumanBones.Count} bones mapped" + (MissingRequired.Count > 0 ? $", MISSING required: {string.Join(", ", MissingRequired)}" : " (all required present)"));
         sb.AppendLine($"  expressions ({Expressions.Count}): {string.Join(", ", Expressions)}; {MorphTargets} morph targets");
+        foreach (var b in Baked) sb.AppendLine($"  baked morph {b}");
+        foreach (var n in Notes) sb.AppendLine($"  NOTE: {n}");
         sb.AppendLine($"  physics: {Springs.Count} spring chains, {SpringJoints} joints, {Colliders} colliders in {ColliderGroups} groups");
         foreach (var s in Springs) sb.AppendLine($"    {s}");
         if (Warnings.Count > 0)

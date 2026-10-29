@@ -170,6 +170,28 @@ public static class Humanoid
         return map;
     }
 
+    /// <summary>
+    /// Bones that stand for a mapped human bone without being it: the plain 足 / ひざ / 足首 / つま先 chain when the
+    /// D-bones were mapped (MMD drives it by IK; in VRM it never moves), and other name variants. Rigid bodies on
+    /// them belong on the human bone.
+    /// </summary>
+    public static Dictionary<int, string> Aliases(PmxModel m, Dictionary<string, int> map)
+    {
+        var byName = new Dictionary<string, int>();
+        for (int i = 0; i < m.Bones.Count; i++) byName.TryAdd(Names.Norm(m.Bones[i].Name), i);
+        var mapped = new HashSet<int>(map.Values);
+        var result = new Dictionary<int, string>();
+        foreach (var (side, jpSide) in new[] { ("left", "左"), ("right", "右") })
+            foreach (var b in Sided)
+            {
+                if (!map.ContainsKey(side + b.Bone)) continue;
+                foreach (var jp in b.Jp)
+                    if (byName.TryGetValue(Names.Norm(jpSide + jp), out var i) && !mapped.Contains(i))
+                        result.TryAdd(i, side + b.Bone);
+            }
+        return result;
+    }
+
     public static bool IsDescendant(int[] parent, int bone, int ancestor)
     {
         int guard = 0;

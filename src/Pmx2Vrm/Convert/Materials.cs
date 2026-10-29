@@ -38,10 +38,9 @@ public sealed partial class Converter
             var pm = _m.Materials[i];
             var info = new MaterialInfo();
             var d = pm.Diffuse;
-            var lit = Vector3.Max(new Vector3(d.X, d.Y, d.Z) * 0.6f + pm.Ambient, new Vector3(d.X, d.Y, d.Z) * 0.8f);
-            lit = Vector3.Clamp(lit, Vector3.Zero, Vector3.One);
-            float alpha = Math.Clamp(d.W, 0, 1);
-            info.BaseColor = new Vector4(lit, alpha);
+            info.BaseColor = BaseColorOf(pm);
+            var lit = new Vector3(info.BaseColor.X, info.BaseColor.Y, info.BaseColor.Z);
+            float alpha = info.BaseColor.W;
 
             var tex = pm.TextureIndex >= 0 ? LoadTexture(pm.TextureIndex, $"material '{pm.Name}'") : null;
             var alphaUse = alpha < 0.999f ? AlphaUsage.Blend : tex?.Alpha ?? AlphaUsage.Opaque;
@@ -121,6 +120,25 @@ public sealed partial class Converter
         _r.Textures = _g.Images.Count;
         return result;
     }
+
+    /// <summary>
+    /// The glTF/MToon base color of an MMD material: diffuse brightened by ambient the way MMD's default light
+    /// (0.6) does, clamped to 0-1; alpha = diffuse alpha.
+    /// </summary>
+    public static Vector4 BaseColorOf(PmxMaterial pm)
+    {
+        var d = new Vector3(pm.Diffuse.X, pm.Diffuse.Y, pm.Diffuse.Z);
+        var lit = Vector3.Clamp(Vector3.Max(d * 0.6f + pm.Ambient, d * 0.8f), Vector3.Zero, Vector3.One);
+        return new Vector4(lit, Math.Clamp(pm.Diffuse.W, 0, 1));
+    }
+
+    static PmxMaterial CopyMaterial(PmxMaterial m) => new()
+    {
+        Name = m.Name, NameEn = m.NameEn, Diffuse = m.Diffuse, Specular = m.Specular, SpecularPower = m.SpecularPower,
+        Ambient = m.Ambient, Flags = m.Flags, EdgeColor = m.EdgeColor, EdgeSize = m.EdgeSize,
+        TextureIndex = m.TextureIndex, SphereIndex = m.SphereIndex, SphereMode = m.SphereMode,
+        SharedToon = m.SharedToon, ToonIndex = m.ToonIndex, Memo = m.Memo, IndexCount = m.IndexCount,
+    };
 
     static int CountBlendBefore(MaterialInfo[] done, int i)
     {

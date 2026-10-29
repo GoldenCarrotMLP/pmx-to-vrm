@@ -41,6 +41,9 @@ pmx2vrm <folder> [out-folder] [options]     converts every .pmx below the folder
 | `--no-tpose` | | keeps MMD's A-pose instead of straightening the arms |
 | `--no-physics` | | writes no spring bones or colliders |
 | `--all-morphs` | | exports every vertex and group morph as a morph target (plus a custom expression for each) |
+| `--bake-morph <name>[=weight]` | | applies a morph permanently: vertex offsets go into the positions, UV offsets into the UVs, material offsets (multiply or add) into the material. Repeatable. Bone parts are skipped |
+| `--no-autoluminous` | | bakes `AL未使用` and `LightOff` at 1. See below |
+| `--list` | | prints the morphs, materials (with sphere maps) and rigid bodies, then exits without converting |
 | `--quiet` | | prints only errors |
 
 Example:
@@ -50,6 +53,10 @@ dotnet run --project src/Pmx2Vrm -- "C:\models\Foo\Foo.pmx" "C:\out\Foo.vrm" --a
 ```
 
 Each conversion prints a short report: bones mapped, expressions, spring chains, colliders and warnings. It also writes **`<name>.license.txt`** next to the output, containing the PMX comment and any readme or terms file (`readme*.txt`, `規約*.txt`, ...) found in the model's folder.
+
+### AutoLuminous models
+
+Some models, such as Tda式初音ミク・アペンド, have their material colors set up for the AutoLuminous effect. Without that effect they look washed out. Their readme says to set the morphs `AL未使用` and `LightOff` to 1 when AutoLuminous is not used. The tool detects these morphs and adds a NOTE to the report. `--no-autoluminous` bakes both at 1. For any other morph, use `--bake-morph "<name>=<weight>"`.
 
 ## How the conversion works
 
@@ -114,7 +121,7 @@ Common English names (`a`, `blink`, `smile`, `wink_R`, ...) also match.
 
 - Vertex morphs become morph targets.
 - Group morphs are expanded with their influences into one target.
-- Material morphs that change the diffuse color become `materialColorBinds` of type `color`. A material that an expression fades out is switched from `OPAQUE` to `MASK`, so the fade can hide it.
+- Material morphs become `materialColorBinds` of type `color`. VRM shows `base + (targetValue - base) × weight`. `targetValue` is the material with the PMX offsets applied in order (multiply or add, as in MMD), turned into a base color the same way as the material itself. At weight 0 the material shows its own color. A material that an expression fades out is switched from `OPAQUE` to `MASK`, so the fade can hide it.
 - Bone, UV, flip and impulse morph parts are skipped, with a warning.
 
 ### Physics → spring bones
@@ -126,7 +133,7 @@ Common English names (`a`, `blink`, `smile`, `wink_R`, ...) also match.
 | a chain of simulated bones in the bone hierarchy | one **spring**: from the first simulated bone down through its simulated children. At a branch, the deepest branch continues and each other branch starts its own spring. The chain ends on the next (non-simulated) child bone, or on a new `<bone>_end` node placed along the PMX bone's tail |
 | PMX collision groups and masks | a spring uses a collider group if any of its bodies would collide with any collider in that group in MMD |
 
-Colliders are grouped by the human bone they hang from: `Head`, `Body`, `LeftArm`, `RightArm`, `LeftLeg`, `RightLeg`. Hair therefore usually collides with Head and Body, and skirts with the legs, exactly as the model's author set the collision masks. Mode-0 "anchor" bodies on non-human bones that hold physics chains (skirt or hair roots) are not colliders.
+Colliders are grouped by the human bone they hang from: `Head`, `Body`, `LeftArm`, `RightArm`, `LeftLeg`, `RightLeg`. Hair therefore usually collides with Head and Body, and skirts with the legs, exactly as the model's author set the collision masks. Mode-0 "anchor" bodies on non-human bones that hold physics chains (skirt or hair roots) are not colliders. A body on a bone the humanoid doesn't use, such as `左足` when the humanoid uses `左足D`, hangs on the human bone instead. MMD moves the plain leg chain by IK, so in VRM that chain would never move.
 
 Joint parameters:
 
@@ -154,9 +161,9 @@ The report lists every spring: its joint count, the human bone it hangs from and
 - The T-pose bake straightens the arms only. The legs are left as modelled.
 - The tool does not produce a thumbnail.
 
-## License of converted models
+## License
 
-The tool's own license is set by the repository owner (no `LICENSE` file yet). **The models you convert keep their own terms**: a converted VRM is a modification of someone else's work and keeps the original model's terms of use. Read each model's readme and terms, which are copied into `<name>.license.txt`. Then choose the VRM meta flags (`--avatar-permission`, `--modification`, `--allow-redistribution`, `--commercial`) so they match what the original author allows. The defaults are the most restrictive. Many MMD models forbid redistribution, conversion to other formats or use outside MMD.
+pmx2vrm is released under the [MIT License](LICENSE), Copyright (c) 2026 GoldenCarrotMLP. That covers the tool only. **The models you convert keep their own terms**: a converted VRM is a modification of someone else's work and keeps the original model's terms of use. Read each model's readme and terms, which are copied into `<name>.license.txt`. Then choose the VRM meta flags (`--avatar-permission`, `--modification`, `--allow-redistribution`, `--commercial`) so they match what the original author allows. The defaults are the most restrictive. Many MMD models forbid redistribution, conversion to other formats or use outside MMD.
 
 ## Development
 

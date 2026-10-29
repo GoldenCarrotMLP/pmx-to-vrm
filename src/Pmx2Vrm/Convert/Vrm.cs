@@ -95,7 +95,7 @@ public sealed partial class Converter
         var dir = Path.GetDirectoryName(Path.GetFullPath(pmxPath));
         if (dir != null)
         {
-            var pattern = new Regex("(readme|read_me|license|licence|terms|kiyaku|規約|りどみ|リードミー|readme|説明|利用|はじめに|必読)", RegexOptions.IgnoreCase);
+            var pattern = new Regex("(readme|read_me|license|licence|terms|kiyaku|規約|りどみ|リードミー|よんでね|読んで|説明|利用|はじめに|必読)", RegexOptions.IgnoreCase);
             IEnumerable<string> files;
             try { files = Directory.GetFiles(dir, "*.txt").Concat(Directory.GetFiles(dir, "*.md")).Where(f => pattern.IsMatch(Path.GetFileName(f))).Take(8).ToList(); }
             catch (IOException) { files = Array.Empty<string>(); }

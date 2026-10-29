@@ -16,7 +16,7 @@ public sealed class MorphTarget
 sealed class ExpandedMorph
 {
     public readonly Dictionary<int, Vector3> Vertex = new(); // MMD space
-    public readonly List<(int Material, byte Op, Vector4 Diffuse, float Weight)> Material = new();
+    public readonly List<(int Material, PmxMaterialOffset Offset, float Weight)> Material = new();
     public bool HasBone, HasUv, HasOther;
 }
 
@@ -110,7 +110,7 @@ public sealed partial class Converter
         {
             if (e.Vertex.Count > 0 && (plan.Presets.Any(p => p.Morph == mi) || _o.AllMorphs)) plan.TargetMorphs.Add(mi);
             foreach (var mat in e.Material)
-                if (plan.Presets.Any(p => p.Morph == mi) && mat.Op == 0 && mat.Diffuse.W < 0.999f)
+                if (plan.Presets.Any(p => p.Morph == mi) && (mat.Offset.Operation == 0 ? mat.Offset.Diffuse.W < 0.999f : mat.Offset.Diffuse.W < 0))
                 {
                     if (mat.Material < 0) for (int k = 0; k < _m.Materials.Count; k++) plan.AlphaAnimated.Add(k);
                     else plan.AlphaAnimated.Add(mat.Material);
@@ -146,7 +146,7 @@ public sealed partial class Converter
                     if (sub != morph) Accumulate(e, sub, weight * w, depth + 1);
                 break;
             case PmxMorphType.Material:
-                foreach (var o in mo.Material) e.Material.Add((o.Material, o.Operation, o.Diffuse, weight));
+                foreach (var o in mo.Material) e.Material.Add((o.Material, o, weight));
                 break;
             case PmxMorphType.Bone: e.HasBone = true; break;
             case PmxMorphType.Uv:
@@ -209,21 +209,25 @@ public sealed partial class Converter
             if (t >= 0) binds.Add(new JsonObject { ["node"] = meshNode, ["index"] = t, ["weight"] = 1.0 });
 
             // Material morphs: the color they reach at full weight, applied in order.
-            var colors = new Dictionary<int, Vector4>();
-            foreach (var (mat, op, diff, w) in e.Material)
+            // VRM: color = base + (targetValue - base) x weight, base being the material's own color. The target is
+            // the material with the PMX offsets applied in order (multiply / add, as MMD does) and turned into a
+            // base color the same way the material itself was.
+            var changed = new Dictionary<int, PmxMaterial>();
+            foreach (var (mat, offset, w) in e.Material)
             {
                 var mlist = mat < 0 ? Enumerable.Range(0, _m.Materials.Count) : new[] { mat };
                 foreach (var k in mlist)
                 {
                     if (k < 0 || k >= mats.Length) continue;
-                    var c = colors.TryGetValue(k, out var cur) ? cur : mats[k].BaseColor;
-                    c = op == 0 ? c * Vector4.Lerp(Vector4.One, diff, w) : c + diff * w;
-                    colors[k] = Vector4.Clamp(c, Vector4.Zero, Vector4.One);
+                    if (!changed.TryGetValue(k, out var copy)) changed[k] = copy = CopyMaterial(_m.Materials[k]);
+                    MorphBaker.ApplyMaterial(copy, offset, w);
                 }
             }
             var colorBinds = new JsonArray();
-            foreach (var (k, c) in colors.OrderBy(x => x.Key))
+            foreach (var (k, copy) in changed.OrderBy(x => x.Key))
             {
+                var c = BaseColorOf(copy);
+                if (!float.IsFinite(c.X + c.Y + c.Z + c.W)) continue;
                 if (Vector4.DistanceSquared(c, mats[k].BaseColor) < 1e-8f) continue;
                 colorBinds.Add(new JsonObject { ["material"] = mats[k].Gltf, ["type"] = "color", ["targetValue"] = GltfBuilder.Arr(c.X, c.Y, c.Z, c.W) });
             }

@@ -64,6 +64,7 @@ public sealed partial class Converter
     {
         if (_m.SoftBodyCount > 0) _r.Warnings.Add($"{_m.SoftBodyCount} PMX 2.1 soft bodies ignored.");
         _r.ModelName = _o.Name ?? (_m.Name.Length > 0 ? _m.Name : _m.NameEn);
+        BakeMorphs();
         SetupSkeleton();
         SetupGeometry();
         SetupBodies();
@@ -112,6 +113,25 @@ public sealed partial class Converter
         _r.HumanBones.AddRange(Humanoid.Order().Where(_human.ContainsKey));
         _r.MissingRequired.AddRange(Humanoid.Required.Where(b => !_human.ContainsKey(b)));
         return _g.ToGlb(root);
+    }
+
+    /// <summary>--bake-morph / --no-autoluminous: morphs applied into the model before anything else.</summary>
+    void BakeMorphs()
+    {
+        var bakes = new List<(string Name, float Weight)>(_o.BakeMorphs);
+        var al = MorphBaker.AutoLuminousMorphs.Where(n => MorphBaker.Find(_m, n) >= 0).ToList();
+        if (_o.NoAutoLuminous)
+            foreach (var n in al) if (!bakes.Any(b => Names.Norm(b.Name) == Names.Norm(n))) bakes.Add((n, 1));
+        var baked = new HashSet<int>();
+        foreach (var (name, w) in bakes)
+        {
+            int mi = MorphBaker.Find(_m, name);
+            if (mi < 0) { _r.Warnings.Add($"--bake-morph: no morph named '{name}'."); continue; }
+            if (!baked.Add(mi)) continue;
+            _r.Baked.Add(MorphBaker.Apply(_m, mi, w, _r.Warnings));
+        }
+        if (al.Count > 0 && !_o.NoAutoLuminous && !al.All(n => baked.Contains(MorphBaker.Find(_m, n))))
+            _r.Notes.Add($"AutoLuminous model (morphs {string.Join(", ", al)}): its material colors are set up for the AutoLuminous effect and look washed out without it. Convert with --no-autoluminous (bakes {string.Join(" and ", al)} at 1, as the model's readme asks when AutoLuminous isn't used).");
     }
 
     // ---------------------------------------------------------------- skeleton
