@@ -1,0 +1,9 @@
+{
+  "name": "pmx2vrm-validator",
+  "private": true,
+  "description": "Runs the Khronos glTF-Validator on converted files (test tooling only).",
+  "type": "module",
+  "devDependencies": {
+    "gltf-validator": "2.0.0-dev.3.10"
+  }
+}

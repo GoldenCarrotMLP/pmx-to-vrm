@@ -6,3 +6,5 @@ node_modules/
 *.vrm
 *.glb
 !tests/**/*.keep
+tools/validator/schemas/
+tools/validator/package-lock.json
